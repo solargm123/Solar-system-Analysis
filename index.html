@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FusionSolar Multi-Plant Irradiation Analyzer</title>
+    <!-- Google Fonts & Lucide Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-yellow: #facc15;
+            --accent-blue: #38bdf8;
+            --accent-green: #4ade80;
+            --accent-red: #f87171;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Kanit', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 24px; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color);
+        }
+        .title-group { display: flex; align-items: center; gap: 12px; }
+
+        /* Dropzone */
+        .upload-card {
+            background-color: var(--card-bg); border: 2px dashed var(--border-color);
+            border-radius: 16px; padding: 28px; text-align: center; cursor: pointer;
+            transition: all 0.2s ease; margin-bottom: 24px;
+        }
+        .upload-card:hover, .upload-card.dragover {
+            border-color: var(--accent-blue); background-color: rgba(56, 189, 248, 0.05);
+        }
+
+        /* Filter Section */
+        .filter-card {
+            background-color: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 20px; margin-bottom: 24px;
+        }
+        .filter-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 12px; }
+        .filter-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        
+        .date-filter-group {
+            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 16px;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        .filter-select-box {
+            display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px;
+        }
+        .filter-select-box label { font-size: 0.85rem; color: var(--accent-blue); font-weight: 500; }
+        .multi-select {
+            background: var(--bg-color); border: 1px solid var(--border-color);
+            border-radius: 8px; color: var(--text-main); padding: 6px; height: 90px;
+            outline: none; font-size: 0.85rem;
+        }
+        .multi-select option { padding: 4px 8px; border-radius: 4px; }
+        .multi-select option:checked { background: var(--accent-blue); color: #0f172a; font-weight: bold; }
+
+        .search-input {
+            background: var(--bg-color); border: 1px solid var(--border-color);
+            border-radius: 8px; padding: 8px 12px; color: var(--text-main); outline: none; width: 250px;
+        }
+        
+        .btn {
+            background: var(--accent-blue); color: #0f172a; border: none; padding: 8px 16px;
+            border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-secondary { background: var(--border-color); color: var(--text-main); }
+        .btn-danger { background: rgba(248, 113, 113, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .plant-list {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 10px; max-height: 250px; overflow-y: auto; padding: 12px;
+            background: var(--bg-color); border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .plant-item { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+        .plant-item:hover { background: rgba(255, 255, 255, 0.05); }
+        .plant-item input { accent-color: var(--accent-blue); width: 16px; height: 16px; cursor: pointer; }
+
+        /* Metrics */
+        .metrics-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px; margin-bottom: 24px;
+        }
+        .card {
+            background-color: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 20px;
+        }
+        .card-header { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.85rem; }
+        .card-value { font-size: 1.8rem; font-weight: 600; margin-top: 8px; }
+        .card-unit { font-size: 0.85rem; color: var(--text-muted); margin-left: 4px; }
+
+        /* Table Wrapper with Top Horizontal Scrollbar */
+        .table-card {
+            background-color: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 20px; margin-bottom: 24px;
+        }
+        .top-scroll-container {
+            width: 100%; overflow-x: auto; overflow-y: hidden; margin-bottom: 4px; height: 14px;
+        }
+        .top-scroll-dummy {
+            height: 1px;
+        }
+        .table-scroll-container {
+            width: 100%; overflow-x: auto;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left; }
+        th, td { padding: 12px 16px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+        th { background-color: rgba(255, 255, 255, 0.05); color: var(--text-muted); font-weight: 500; }
+        tr:hover { background-color: rgba(255, 255, 255, 0.02); }
+        .number-col { text-align: right; }
+        .avg-col { background-color: rgba(250, 204, 21, 0.08); color: var(--accent-yellow); font-weight: bold; }
+        .yield-col { background-color: rgba(74, 222, 128, 0.08); color: var(--accent-green); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="title-group">
+                <i data-lucide="sun" size="32" style="color: var(--accent-yellow);"></i>
+                <h2>FusionSolar Multi-Plant Irradiation Analyzer</h2>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-danger" onclick="resetData()"><i data-lucide="trash-2"></i> ล้างข้อมูล</button>
+                <button class="btn" onclick="exportToExcel()"><i data-lucide="download"></i> ส่งออกรายงาน Excel</button>
+            </div>
+        </header>
+
+        <!-- Dropzone -->
+        <div class="upload-card" id="dropzone" onclick="document.getElementById('fileInput').click()">
+            <i data-lucide="upload-cloud" size="44" style="color: var(--accent-blue); margin-bottom: 8px;"></i>
+            <h3 id="uploadStatus">คลิก หรือ ลากไฟล์ Plant Report (.xlsx/.csv) มาวางที่นี่</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">รองรับทั้งการวางพร้อมกันหลายไฟล์ และการทยอยลากวางไฟล์เพิ่มทีหลัง</p>
+            <input type="file" id="fileInput" class="file-input" accept=".xlsx, .xls, .csv" multiple style="display:none" onchange="handleFiles(this.files)">
+        </div>
+
+        <!-- Filter Card -->
+        <div class="filter-card" id="filterCard" style="display: none;">
+            <!-- Date / Month / Year Multi-Select Filter -->
+            <div class="date-filter-group">
+                <div class="filter-select-box">
+                    <label><i data-lucide="calendar-days" size="14"></i> กรองปี (Year)</label>
+                    <select id="yearFilter" class="multi-select" multiple onchange="onDateFilterChange()">
+                    </select>
+                </div>
+                <div class="filter-select-box">
+                    <label><i data-lucide="calendar" size="14"></i> กรองเดือน (Month)</label>
+                    <select id="monthFilter" class="multi-select" multiple onchange="onDateFilterChange()">
+                    </select>
+                </div>
+                <div class="filter-select-box">
+                    <label><i data-lucide="clock" size="14"></i> กรองวันที่ (Day)</label>
+                    <select id="dayFilter" class="multi-select" multiple onchange="onDateFilterChange()">
+                    </select>
+                </div>
+                <div style="display: flex; align-items: flex-end; padding-bottom: 4px;">
+                    <button class="btn btn-secondary" style="font-size: 0.8rem;" onclick="resetDateFilters()"><i data-lucide="refresh-cw" size="14"></i> รีเซ็ตตัวกรองวันที่</button>
+                </div>
+            </div>
+
+            <div class="filter-header">
+                <h3><i data-lucide="filter" size="18" style="vertical-align: middle;"></i> เลือกโครงการที่ต้องการแสดงผล (<span id="selectedCount">0</span>/<span id="totalCount">0</span>)</h3>
+                <div class="filter-controls">
+                    <input type="text" id="searchPlant" class="search-input" placeholder="ค้นหาชื่อโครงการ..." oninput="filterPlantList()">
+                    <button class="btn btn-secondary" onclick="toggleSelectAll(true)">เลือกทั้งหมด</button>
+                    <button class="btn btn-secondary" onclick="toggleSelectAll(false)">ยกเลิกทั้งหมด</button>
+                </div>
+            </div>
+            <div class="plant-list" id="plantListContainer"></div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="metrics-grid">
+            <div class="card">
+                <div class="card-header"><span>จำนวนโครงการที่เลือก</span><i data-lucide="building" style="color: var(--accent-blue)"></i></div>
+                <div class="card-value"><span id="metricPlants">0</span><span class="card-unit">โครงการ</span></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><span>จำนวนวันที่มีข้อมูล</span><i data-lucide="calendar" style="color: var(--accent-blue)"></i></div>
+                <div class="card-value"><span id="metricTotalDays">0</span><span class="card-unit">วัน</span></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><span>ความเข้มแสงสะสมเฉลี่ย/วัน</span><i data-lucide="sun" style="color: var(--accent-yellow)"></i></div>
+                <div class="card-value"><span id="metricAvgIrr">0.000</span><span class="card-unit">kWh/m²</span></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><span>พลังงานไฟฟ้ารวม (PV Yield)</span><i data-lucide="zap" style="color: var(--accent-green)"></i></div>
+                <div class="card-value"><span id="metricTotalYield">0.00</span><span class="card-unit">kWh</span></div>
+            </div>
+        </div>
+
+        <!-- Table Display -->
+        <div class="table-card">
+            <h3><i data-lucide="table" size="18" style="vertical-align: middle; margin-right: 6px;"></i> ตารางเปรียบเทียบ Global Irradiation (kWh/m²) รายวัน</h3>
+            
+            <!-- Top Horizontal Scrollbar Container -->
+            <div class="top-scroll-container" id="topScrollContainer">
+                <div class="top-scroll-dummy" id="topScrollDummy"></div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-scroll-container" id="tableScrollContainer">
+                <table id="resultTable">
+                    <thead><tr id="tableHeader"><th>ชื่อโครงการ (Plant Name)</th><th class="number-col avg-col">เฉลี่ย (kWh/m²)</th><th class="number-col">kWp</th></tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        try { lucide.createIcons(); } catch(e) {}
+
+        let allPlantsSet = new Set();
+        let selectedPlants = new Set();
+        let datesSet = new Set();
+        let plantMasterData = {}; 
+
+        // Scrollbar Synchronization
+        const topScroll = document.getElementById('topScrollContainer');
+        const tableScroll = document.getElementById('tableScrollContainer');
+        const topDummy = document.getElementById('topScrollDummy');
+        const resultTable = document.getElementById('resultTable');
+
+        topScroll.addEventListener('scroll', () => {
+            tableScroll.scrollLeft = topScroll.scrollLeft;
+        });
+        tableScroll.addEventListener('scroll', () => {
+            topScroll.scrollLeft = tableScroll.scrollLeft;
+        });
+
+        function syncScrollWidth() {
+            topDummy.style.width = resultTable.offsetWidth + 'px';
+        }
+
+        const dropzone = document.getElementById('dropzone');
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault(); dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+        });
+
+        async function handleFiles(files) {
+            if (!files || !files.length) return;
+            document.getElementById('uploadStatus').innerText = `กำลังประมวลผลเพิ่ม ${files.length} ไฟล์...`;
+
+            for (let file of files) {
+                let dateMatch = file.name.match(/\d{2,4}[.-]\d{2}[.-]\d{2,4}/);
+                let dateStr = dateMatch ? dateMatch[0] : file.name.replace(/\.[^/.]+$/, "");
+                
+                await parseFile(file, dateStr);
+            }
+
+            document.getElementById('uploadStatus').innerText = `รวมข้อมูลสะสมแล้ว ${datesSet.size} วัน (คลิก/ลากวางเพิ่มได้อีก)`;
+            document.getElementById('filterCard').style.display = 'block';
+
+            populateDateFilters();
+            renderPlantList();
+            renderTableAndMetrics();
+        }
+
+        function parseFile(file, dateStr) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                        if (rows && rows.length > 0) {
+                            let headerIdx = -1;
+                            let nameIdx = 0;   
+                            let capIdx = 2;    
+                            let irrIdx = 3;    
+                            let yieldIdx = 7;  
+                            let fileDateFound = null;
+
+                            for (let i = 0; i < Math.min(15, rows.length); i++) {
+                                const r = rows[i];
+                                if (!Array.isArray(r)) continue;
+                                
+                                let foundName = false;
+                                r.forEach((c, idx) => {
+                                    if (c === null || c === undefined) return;
+                                    const str = String(c).trim().toLowerCase();
+                                    
+                                    let cellDateMatch = String(c).match(/\d{4}[.-]\d{2}[.-]\d{2}/) || String(c).match(/\d{2}[.-]\d{2}[.-]\d{4}/);
+                                    if (cellDateMatch && !fileDateFound) {
+                                        fileDateFound = cellDateMatch[0];
+                                    }
+
+                                    if (str.includes('plant name') || str === 'plant') {
+                                        nameIdx = idx;
+                                        foundName = true;
+                                    }
+                                    if (str.includes('capacity') || str.includes('kwp')) capIdx = idx;
+                                    if (str.includes('irradiation') || str.includes('kwh/㎡') || str.includes('kwh/m²')) irrIdx = idx;
+                                    if (str.includes('pv yield') || str.includes('inverter yield') || str.includes('yield')) yieldIdx = idx;
+                                });
+
+                                if (foundName) { 
+                                    headerIdx = i; 
+                                    break; 
+                                }
+                            }
+
+                            if (headerIdx === -1) headerIdx = 1;
+
+                            let rawDate = fileDateFound || dateStr;
+                            let formattedDate = standardizeDate(rawDate);
+                            datesSet.add(formattedDate);
+
+                            for (let i = headerIdx + 1; i < rows.length; i++) {
+                                const row = rows[i];
+                                if (!row || row[nameIdx] === undefined || row[nameIdx] === null) continue;
+
+                                const pName = String(row[nameIdx]).trim();
+                                
+                                if (!pName || 
+                                    pName.toLowerCase().includes('total') || 
+                                    pName.toLowerCase().includes('summary') || 
+                                    pName.toLowerCase().includes('average') || 
+                                    pName === 'Plant Report' || 
+                                    pName === 'Plant Name') continue;
+
+                                const cap = parseFloat(row[capIdx]) || 0;
+                                const irr = parseFloat(row[irrIdx]) || 0;
+                                const pvYield = parseFloat(row[yieldIdx]) || 0;
+
+                                if (!allPlantsSet.has(pName)) {
+                                    allPlantsSet.add(pName);
+                                    selectedPlants.add(pName);
+                                }
+
+                                if (!plantMasterData[pName]) {
+                                    plantMasterData[pName] = { capacity: cap, dates: {} };
+                                }
+                                if (cap > 0) plantMasterData[pName].capacity = cap;
+                                plantMasterData[pName].dates[formattedDate] = { irr: irr, yield: pvYield };
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Error parsing file:", err);
+                    }
+                    resolve();
+                };
+                reader.onerror = () => resolve();
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Standardize YYYY-MM-DD format
+        function standardizeDate(str) {
+            let parts = str.split(/[.-]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 4) {
+                    return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                } else if (parts[2].length === 4) {
+                    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                }
+            }
+            return str;
+        }
+
+        // Date Filter Options Population
+        function populateDateFilters() {
+            const yearSel = document.getElementById('yearFilter');
+            const monthSel = document.getElementById('monthFilter');
+            const daySel = document.getElementById('dayFilter');
+
+            const prevYears = getSelectedValues(yearSel);
+            const prevMonths = getSelectedValues(monthSel);
+            const prevDays = getSelectedValues(daySel);
+
+            let years = new Set();
+            let months = new Set();
+            let days = new Set();
+
+            datesSet.forEach(d => {
+                let parts = d.split('-');
+                if (parts.length === 3) {
+                    years.add(parts[0]);
+                    months.add(parts[1]);
+                    days.add(parts[2]);
+                }
+            });
+
+            yearSel.innerHTML = Array.from(years).sort().map(y => `<option value="${y}" ${prevYears.includes(y)?'selected':''}>${y}</option>`).join('');
+            monthSel.innerHTML = Array.from(months).sort().map(m => `<option value="${m}" ${prevMonths.includes(m)?'selected':''}>เดือน ${m}</option>`).join('');
+            daySel.innerHTML = Array.from(days).sort().map(d => `<option value="${d}" ${prevDays.includes(d)?'selected':''}>วันที่ ${d}</option>`).join('');
+        }
+
+        function getSelectedValues(selectEl) {
+            return Array.from(selectEl.selectedOptions).map(opt => opt.value);
+        }
+
+        function resetDateFilters() {
+            document.getElementById('yearFilter').selectedIndex = -1;
+            document.getElementById('monthFilter').selectedIndex = -1;
+            document.getElementById('dayFilter').selectedIndex = -1;
+            renderTableAndMetrics();
+        }
+
+        function onDateFilterChange() {
+            renderTableAndMetrics();
+        }
+
+        function getFilteredDates() {
+            const selYears = getSelectedValues(document.getElementById('yearFilter'));
+            const selMonths = getSelectedValues(document.getElementById('monthFilter'));
+            const selDays = getSelectedValues(document.getElementById('dayFilter'));
+
+            return Array.from(datesSet).filter(d => {
+                let parts = d.split('-');
+                if (parts.length !== 3) return true;
+
+                let matchYear = selYears.length === 0 || selYears.includes(parts[0]);
+                let matchMonth = selMonths.length === 0 || selMonths.includes(parts[1]);
+                let matchDay = selDays.length === 0 || selDays.includes(parts[2]);
+
+                return matchYear && matchMonth && matchDay;
+            }).sort();
+        }
+
+        function renderPlantList() {
+            const container = document.getElementById('plantListContainer');
+            container.innerHTML = '';
+            
+            const sortedPlants = Array.from(allPlantsSet).sort();
+            document.getElementById('totalCount').innerText = sortedPlants.length;
+
+            sortedPlants.forEach(plant => {
+                const div = document.createElement('label');
+                div.className = 'plant-item';
+                div.innerHTML = `
+                    <input type="checkbox" value="${plant}" ${selectedPlants.has(plant) ? 'checked' : ''} onchange="onPlantCheckChange(this)">
+                    <span>${plant}</span>
+                `;
+                container.appendChild(div);
+            });
+            updateSelectedCount();
+        }
+
+        function filterPlantList() {
+            const query = document.getElementById('searchPlant').value.toLowerCase();
+            const items = document.querySelectorAll('.plant-item');
+            items.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                item.style.display = text.includes(query) ? 'flex' : 'none';
+            });
+        }
+
+        function onPlantCheckChange(cb) {
+            if (cb.checked) selectedPlants.add(cb.value);
+            else selectedPlants.delete(cb.value);
+            updateSelectedCount();
+            renderTableAndMetrics();
+        }
+
+        function toggleSelectAll(select) {
+            selectedPlants.clear();
+            if (select) allPlantsSet.forEach(p => selectedPlants.add(p));
+            
+            document.querySelectorAll('.plant-item input').forEach(cb => cb.checked = select);
+            updateSelectedCount();
+            renderTableAndMetrics();
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').innerText = selectedPlants.size;
+        }
+
+        function renderTableAndMetrics() {
+            const dateList = getFilteredDates();
+            const headerTr = document.getElementById('tableHeader');
+            const tbody = document.getElementById('tableBody');
+
+            // 1. หัวตาราง: ย้าย "เฉลี่ย" มาอยู่ถัดจากชื่อโครงการ
+            headerTr.innerHTML = `<th>ชื่อโครงการ (Plant Name)</th><th class="number-col avg-col">เฉลี่ย (kWh/m²)</th><th class="number-col">kWp</th>`;
+            dateList.forEach(d => {
+                headerTr.innerHTML += `<th class="number-col" style="color:var(--accent-blue)">${d}<br><small>(kWh/m²)</small></th>`;
+            });
+            headerTr.innerHTML += `<th class="number-col yield-col">PV Yield รวม (kWh)</th>`;
+
+            // 2. เนื้อหาตาราง
+            tbody.innerHTML = '';
+            let totalCap = 0;
+            let sumAllIrr = 0;
+            let irrCount = 0;
+            let grandTotalYield = 0;
+
+            const sortedSelected = Array.from(selectedPlants).sort();
+
+            sortedSelected.forEach(plant => {
+                const pData = plantMasterData[plant];
+                if (!pData) return;
+
+                totalCap += pData.capacity;
+
+                let plantIrrSum = 0;
+                let plantIrrDays = 0;
+                let plantYieldSum = 0;
+                let dayCellsHtml = '';
+
+                dateList.forEach(d => {
+                    const dayData = pData.dates[d];
+                    if (dayData && dayData.irr !== undefined) {
+                        dayCellsHtml += `<td class="number-col">${dayData.irr.toFixed(3)}</td>`;
+                        plantIrrSum += dayData.irr;
+                        plantIrrDays++;
+                        plantYieldSum += dayData.yield;
+                        
+                        sumAllIrr += dayData.irr;
+                        irrCount++;
+                    } else {
+                        dayCellsHtml += `<td class="number-col" style="color:var(--text-muted)">-</td>`;
+                    }
+                });
+
+                const plantAvgIrr = plantIrrDays > 0 ? (plantIrrSum / plantIrrDays) : 0;
+                grandTotalYield += plantYieldSum;
+
+                // รวม HTML ของ Row โดยวางคอลัมน์เฉลี่ยไว้หลังชื่อโครงการ
+                let trHtml = `<tr>
+                    <td><strong>${plant}</strong></td>
+                    <td class="number-col avg-col">${plantAvgIrr.toFixed(3)}</td>
+                    <td class="number-col">${pData.capacity.toLocaleString()}</td>
+                    ${dayCellsHtml}
+                    <td class="number-col yield-col">${plantYieldSum.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                </tr>`;
+
+                tbody.innerHTML += trHtml;
+            });
+
+            // Metrics Summary
+            document.getElementById('metricPlants').innerText = selectedPlants.size;
+            document.getElementById('metricTotalDays').innerText = dateList.length;
+            document.getElementById('metricAvgIrr').innerText = irrCount > 0 ? (sumAllIrr / irrCount).toFixed(3) : "0.000";
+            document.getElementById('metricTotalYield').innerText = grandTotalYield.toLocaleString(undefined, {maximumFractionDigits: 2});
+
+            // ปรับขนาด Scrollbar ด้านบนให้สัมพันธ์กับความกว้างตาราง
+            setTimeout(syncScrollWidth, 50);
+        }
+
+        function resetData() {
+            if (confirm("คุณต้องการล้างข้อมูลทั้งหมดเพื่อเริ่มต้นใหม่ใช่หรือไม่?")) {
+                allPlantsSet.clear();
+                selectedPlants.clear();
+                datesSet.clear();
+                plantMasterData = {};
+
+                document.getElementById('uploadStatus').innerText = "คลิก หรือ ลากไฟล์ Plant Report (.xlsx/.csv) มาวางที่นี่";
+                document.getElementById('filterCard').style.display = 'none';
+                document.getElementById('fileInput').value = '';
+                
+                resetDateFilters();
+                renderPlantList();
+                renderTableAndMetrics();
+            }
+        }
+
+        function exportToExcel() {
+            if (!selectedPlants.size) return alert('กรุณาเลือกโครงการอย่างน้อย 1 โครงการ');
+            const table = document.getElementById('resultTable');
+            const wb = XLSX.utils.table_to_book(table, { sheet: "Irradiation Summary" });
+            XLSX.writeFile(wb, `FusionSolar_Irradiation_Report.xlsx`);
+        }
+    </script>
+</body>
+</html>
